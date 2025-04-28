@@ -20,7 +20,7 @@ export const useMetrics = (viewMode: ViewMode) => {
         throw error;
       }
       
-      return data;
+      return data || [];
     }
   });
 
@@ -37,7 +37,7 @@ export const useMetrics = (viewMode: ViewMode) => {
         throw error;
       }
       
-      return data;
+      return data || [];
     }
   });
 
@@ -54,14 +54,21 @@ export const useMetrics = (viewMode: ViewMode) => {
         throw error;
       }
       
-      return data;
+      return data || [];
     }
   });
 
-  const updateMetric = useMutation({
+  const updateMetricMutation = useMutation({
     mutationFn: async ({ table, data }: { table: string; data: any }) => {
+      // Validate table name to ensure it's one of the allowed tables
+      const validTables = ['performance_metrics', 'customer_service_metrics', 'customer_satisfaction', 'notes'];
+      
+      if (!validTables.includes(table)) {
+        throw new Error(`Invalid table name: ${table}`);
+      }
+      
       const { error } = await supabase
-        .from(table)
+        .from(table as any) // Type cast to satisfy TypeScript
         .upsert(data);
       
       if (error) throw error;
@@ -82,6 +89,6 @@ export const useMetrics = (viewMode: ViewMode) => {
     customerServiceMetrics,
     customerSatisfaction,
     isLoading: isLoadingPerformance || isLoadingService || isLoadingSatisfaction,
-    updateMetric
+    updateMetricMutation
   };
 };

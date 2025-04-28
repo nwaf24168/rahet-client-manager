@@ -18,20 +18,24 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [viewMode, setViewMode] = useState<ViewMode>("weekly");
   const { 
-    performanceMetrics = [], 
-    customerServiceMetrics = [], 
-    customerSatisfaction = [],
+    performanceMetrics, 
+    customerServiceMetrics, 
+    customerSatisfaction,
     isLoading,
-    updateMetric
+    updateMetricMutation
   } = useMetrics(viewMode);
+
+  const updateMetric = (params: { table: string; data: any }) => {
+    updateMetricMutation.mutate(params);
+  };
 
   return (
     <DataContext.Provider value={{ 
       viewMode, 
       setViewMode,
-      performanceMetrics,
-      customerServiceMetrics,
-      customerSatisfaction,
+      performanceMetrics: performanceMetrics || [],
+      customerServiceMetrics: customerServiceMetrics || [],
+      customerSatisfaction: customerSatisfaction || [],
       isLoading,
       updateMetric
     }}>

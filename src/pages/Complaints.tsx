@@ -1,9 +1,24 @@
-
 import { useState } from 'react';
 import Layout from '../components/Layout';
 import { useData } from '../contexts/DataContext';
 import { Complaint } from '../types';
-import { Eye, Edit, Trash, Plus, Search, Filter } from 'lucide-react';
+import { 
+  Eye, 
+  Edit, 
+  Trash, 
+  Plus, 
+  Search, 
+  Filter, 
+  User,
+  Users,
+  MessageCircle,
+  Home,
+  Calendar,
+  File,
+  Check,
+  Building,
+  Clock
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 const Complaints = () => {
@@ -15,7 +30,6 @@ const Complaints = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   
-  // Form state for new complaint
   const [newComplaint, setNewComplaint] = useState<Partial<Complaint>>({
     customerName: '',
     project: '',
@@ -27,7 +41,6 @@ const Complaints = () => {
     unitNumber: ''
   });
 
-  // Filters
   const filteredComplaints = weeklyData.complaints.filter(complaint => {
     const matchesSearch = 
       complaint.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -39,7 +52,6 @@ const Complaints = () => {
     return matchesSearch && matchesStatus;
   });
 
-  // Status options
   const statusOptions = [
     'جميع الحالات',
     'تم حلها',
@@ -47,7 +59,6 @@ const Complaints = () => {
     'لم يتم حلها'
   ];
 
-  // Source options
   const sourceOptions = [
     'الاستبيان',
     'البريد الإلكتروني',
@@ -56,7 +67,6 @@ const Complaints = () => {
     'الموقع الإلكتروني'
   ];
 
-  // Project options
   const projectOptions = [
     'تل الرمال المالية',
     'المعالي',
@@ -65,26 +75,22 @@ const Complaints = () => {
     '41'
   ];
 
-  // Handle view complaint
   const handleViewComplaint = (complaint: Complaint) => {
     setSelectedComplaint(complaint);
     setIsViewModalOpen(true);
   };
 
-  // Handle edit complaint
   const handleEditComplaint = (complaint: Complaint) => {
     setSelectedComplaint(complaint);
     setIsEditModalOpen(true);
   };
 
-  // Handle delete complaint
   const handleDeleteComplaint = (id: string) => {
     if (confirm('هل أنت متأكد من حذف هذه الشكوى؟')) {
       deleteComplaint(id);
     }
   };
 
-  // Handle save new complaint
   const handleSaveNewComplaint = () => {
     if (!newComplaint.customerName || !newComplaint.date) {
       toast.error('الرجاء إدخال البيانات المطلوبة');
@@ -118,7 +124,6 @@ const Complaints = () => {
     setIsAddModalOpen(false);
   };
 
-  // Handle save edited complaint
   const handleSaveEditedComplaint = () => {
     if (!selectedComplaint) return;
     
@@ -230,7 +235,6 @@ const Complaints = () => {
         </div>
       </div>
 
-      {/* Add Complaint Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-card rounded-lg p-6 w-full max-w-3xl mx-4">
@@ -347,7 +351,6 @@ const Complaints = () => {
         </div>
       )}
 
-      {/* View Complaint Modal */}
       {isViewModalOpen && selectedComplaint && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-card rounded-lg p-6 w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto">
@@ -471,7 +474,6 @@ const Complaints = () => {
         </div>
       )}
 
-      {/* Edit Complaint Modal */}
       {isEditModalOpen && selectedComplaint && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-card rounded-lg p-6 w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto">
@@ -598,14 +600,5 @@ const Complaints = () => {
     </Layout>
   );
 };
-
-// Temporary fix for components that are not imported
-const User = (props: any) => <div {...props} />;
-const MessageCircle = (props: any) => <div {...props} />;
-const Home = (props: any) => <div {...props} />;
-const Calendar = (props: any) => <div {...props} />;
-const File = (props: any) => <div {...props} />;
-const Check = (props: any) => <div {...props} />;
-const Building = (props: any) => <div {...props} />;
 
 export default Complaints;

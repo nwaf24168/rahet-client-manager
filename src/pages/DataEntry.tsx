@@ -7,13 +7,16 @@ import { DataEntryTab } from '../types';
 import { toast } from 'sonner';
 
 const DataEntry = () => {
-  const { viewMode, performanceMetrics, customerServiceMetrics, customerSatisfaction, updateMetric } = useData();
+  const { viewMode, weeklyData, annualData, updateWeeklyData, updateAnnualData } = useData();
   const [activeTab, setActiveTab] = useState<DataEntryTab>('performanceMetrics');
   const [notes, setNotes] = useState('');
 
+  const data = viewMode === 'weekly' ? weeklyData : annualData;
+  const updateData = viewMode === 'weekly' ? updateWeeklyData : updateAnnualData;
+
   // Performance Metrics Data Entry
   const [performanceMetricsForm, setPerformanceMetricsForm] = useState(() => {
-    return (performanceMetrics || []).reduce((acc, metric) => {
+    return data.performanceMetrics.reduce((acc, metric) => {
       acc[metric.id] = metric.value;
       return acc;
     }, {} as Record<string, number>);
@@ -21,20 +24,16 @@ const DataEntry = () => {
 
   // Customer Service Data Entry
   const [customerServiceForm, setCustomerServiceForm] = useState(() => {
-    const calls = customerServiceMetrics?.filter(m => m.category === 'calls') || [];
-    const inquiries = customerServiceMetrics?.filter(m => m.category === 'inquiries') || [];
-    const maintenance = customerServiceMetrics?.filter(m => m.category === 'maintenance') || [];
-    
     return {
-      calls: calls.reduce((acc, metric) => {
+      calls: data.customerMetrics.calls.reduce((acc, metric) => {
         acc[metric.id] = metric.value;
         return acc;
       }, {} as Record<string, number>),
-      inquiries: inquiries.reduce((acc, metric) => {
+      inquiries: data.customerMetrics.inquiries.reduce((acc, metric) => {
         acc[metric.id] = metric.value;
         return acc;
       }, {} as Record<string, number>),
-      maintenance: maintenance.reduce((acc, metric) => {
+      maintenance: data.customerMetrics.maintenance.reduce((acc, metric) => {
         acc[metric.id] = metric.value;
         return acc;
       }, {} as Record<string, number>),
@@ -43,102 +42,76 @@ const DataEntry = () => {
 
   // Customer Satisfaction Data Entry
   const [customerSatisfactionForm, setCustomerSatisfactionForm] = useState(() => {
-    return (customerSatisfaction || []).reduce((acc, item) => {
+    return data.customerSatisfaction.reduce((acc, item) => {
       acc[item.id] = {
-        veryPleased: item.very_pleased,
+        veryPleased: item.veryPleased,
         pleased: item.pleased,
         neutral: item.neutral,
         displeased: item.displeased,
-        veryDispleased: item.very_displeased,
+        veryDispleased: item.veryDispleased,
       };
       return acc;
     }, {} as Record<string, any>);
   });
 
   const handleUpdatePerformanceMetrics = () => {
-    const updatedMetrics = performanceMetrics.map(metric => {
-      const newValue = performanceMetricsForm[metric.id];
-      
-      // Calculate if target is achieved based on metric name
-      const targetAchieved = 
-        metric.metric_name === 'عدد التوالي للرد' || metric.metric_name === 'عدد إعادة فتح طلب' 
-          ? newValue <= metric.target
-          : newValue >= metric.target;
-      
-      return {
-        ...metric,
-        value: newValue,
-        target_achieved: targetAchieved
-      };
-    });
+    const updatedMetrics = data.performanceMetrics.map(metric => ({
+      ...metric,
+      value: performanceMetricsForm[metric.id],
+      targetAchieved: 
+        metric.name === 'عدد التوالي للرد' || metric.name === 'عدد إعادة فتح طلب' 
+          ? performanceMetricsForm[metric.id] <= metric.target
+          : performanceMetricsForm[metric.id] >= metric.target
+    }));
 
-    updatedMetrics.forEach(metric => {
-      updateMetric({ 
-        table: 'performance_metrics', 
-        data: metric
-      });
-    });
-    
+    updateData({ performanceMetrics: updatedMetrics });
     toast.success('تم تحديث مؤشرات الأداء بنجاح');
   };
 
   const handleUpdateCustomerService = () => {
-    const categories = ['calls', 'inquiries', 'maintenance'];
-    categories.forEach(category => {
-      const metrics = customerServiceMetrics.filter(m => m.category === category);
-      
-      metrics.forEach(metric => {
-        const updatedMetric = {
-          ...metric,
-          value: customerServiceForm[category][metric.id]
-        };
-        
-        updateMetric({
-          table: 'customer_service_metrics',
-          data: updatedMetric
-        });
-      });
-    });
-    
+    const updatedCustomerMetrics = {
+      calls: data.customerMetrics.calls.map(metric => ({
+        ...metric,
+        value: customerServiceForm.calls[metric.id]
+      })),
+      inquiries: data.customerMetrics.inquiries.map(metric => ({
+        ...metric,
+        value: customerServiceForm.inquiries[metric.id]
+      })),
+      maintenance: data.customerMetrics.maintenance.map(metric => ({
+        ...metric,
+        value: customerServiceForm.maintenance[metric.id]
+      })),
+    };
+
+    updateData({ customerMetrics: updatedCustomerMetrics });
     toast.success('تم تحديث بيانات خدمة العملاء بنجاح');
   };
 
   const handleUpdateCustomerSatisfaction = () => {
-    customerSatisfaction.forEach(item => {
+    const updatedSatisfaction = data.customerSatisfaction.map(item => {
       const formData = customerSatisfactionForm[item.id];
       const total = formData.veryPleased + formData.pleased + formData.neutral + formData.displeased + formData.veryDispleased;
-      
       // Calculate score - weighted average
-      const score = total > 0 
-        ? ((formData.veryPleased * 100) + (formData.pleased * 75) + (formData.neutral * 50) + (formData.displeased * 25)) / total 
-        : 0;
+      const score = ((formData.veryPleased * 100) + (formData.pleased * 75) + (formData.neutral * 50) + (formData.displeased * 25)) / total;
       
-      const updatedItem = {
+      return {
         ...item,
-        very_pleased: formData.veryPleased,
+        veryPleased: formData.veryPleased,
         pleased: formData.pleased,
         neutral: formData.neutral,
         displeased: formData.displeased,
-        very_displeased: formData.veryDispleased,
-        total_score: Math.round(score * 100) / 100
+        veryDispleased: formData.veryDispleased,
+        totalScore: Math.round(score * 100) / 100
       };
-      
-      updateMetric({
-        table: 'customer_satisfaction',
-        data: updatedItem
-      });
     });
-    
+
+    updateData({ customerSatisfaction: updatedSatisfaction });
     toast.success('تم تحديث بيانات رضا العملاء بنجاح');
   };
 
   const handleSubmitNotes = () => {
     if (notes.trim()) {
-      updateMetric({
-        table: 'notes',
-        data: { content: notes }
-      });
-      
       toast.success('تم حفظ الملاحظات بنجاح');
       setNotes('');
     } else {
@@ -181,7 +154,7 @@ const DataEntry = () => {
               <h3 className="text-xl font-semibold mb-4 text-right">مؤشرات الأداء الرئيسية - {viewMode === 'weekly' ? 'أسبوعي' : 'سنوي'}</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {performanceMetrics && performanceMetrics.map(metric => (
+                {data.performanceMetrics.map(metric => (
                   <div key={metric.id} className="bg-secondary rounded-md p-4">
                     <div className="flex justify-between items-center mb-2">
                       <div>
@@ -193,13 +166,13 @@ const DataEntry = () => {
                     </div>
                     
                     <div className="text-right mb-2">
-                      <h4 className="font-medium">{metric.metric_name}</h4>
+                      <h4 className="font-medium">{metric.name}</h4>
                     </div>
 
                     <input 
                       type="number" 
                       className="w-full bg-background border border-border rounded-md p-2 text-right" 
-                      value={performanceMetricsForm[metric.id] || 0}
+                      value={performanceMetricsForm[metric.id]}
                       onChange={(e) => {
                         setPerformanceMetricsForm({
                           ...performanceMetricsForm,
@@ -210,14 +183,14 @@ const DataEntry = () => {
 
                     <div className="mt-2 text-right">
                       <p className={`text-xs ${
-                        metric.metric_name === 'عدد التوالي للرد' || metric.metric_name === 'عدد إعادة فتح طلب' 
-                          ? (performanceMetricsForm[metric.id] || 0) <= metric.target ? 'text-positive' : 'text-negative'
-                          : (performanceMetricsForm[metric.id] || 0) >= metric.target ? 'text-positive' : 'text-negative'
+                        metric.name === 'عدد التوالي للرد' || metric.name === 'عدد إعادة فتح طلب' 
+                          ? performanceMetricsForm[metric.id] <= metric.target ? 'text-positive' : 'text-negative'
+                          : performanceMetricsForm[metric.id] >= metric.target ? 'text-positive' : 'text-negative'
                       }`}>
                         {
-                          metric.metric_name === 'عدد التوالي للرد' || metric.metric_name === 'عدد إعادة فتح طلب' 
-                            ? (performanceMetricsForm[metric.id] || 0) <= metric.target ? 'تم تحقيق الهدف' : 'لم يتم تحقيق الهدف'
-                            : (performanceMetricsForm[metric.id] || 0) >= metric.target ? 'تم تحقيق الهدف' : 'لم يتم تحقيق الهدف'
+                          metric.name === 'عدد التوالي للرد' || metric.name === 'عدد إعادة فتح طلب' 
+                            ? performanceMetricsForm[metric.id] <= metric.target ? 'تم تحقيق الهدف' : 'لم يتم تحقيق الهدف'
+                            : performanceMetricsForm[metric.id] >= metric.target ? 'تم تحقيق الهدف' : 'لم يتم تحقيق الهدف'
                         }
                       </p>
                     </div>
@@ -245,14 +218,12 @@ const DataEntry = () => {
                 <div className="bg-secondary rounded-md p-4">
                   <h4 className="font-medium mb-4 text-right">المكالمات</h4>
                   <div className="space-y-4">
-                    {customerServiceMetrics && customerServiceMetrics
-                      .filter(metric => metric.category === 'calls')
-                      .map(metric => (
+                    {data.customerMetrics.calls.map(metric => (
                       <div key={metric.id} className="flex justify-between items-center">
                         <input 
                           type="number" 
                           className="w-24 bg-background border border-border rounded-md p-2 text-right" 
-                          value={customerServiceForm.calls[metric.id] || 0}
+                          value={customerServiceForm.calls[metric.id]}
                           onChange={(e) => {
                             setCustomerServiceForm({
                               ...customerServiceForm,
@@ -263,7 +234,7 @@ const DataEntry = () => {
                             });
                           }}
                         />
-                        <span className="text-muted-foreground">{metric.metric_name}</span>
+                        <span className="text-muted-foreground">{metric.name}</span>
                       </div>
                     ))}
                   </div>
@@ -272,14 +243,12 @@ const DataEntry = () => {
                 <div className="bg-secondary rounded-md p-4">
                   <h4 className="font-medium mb-4 text-right">الاستفسارات</h4>
                   <div className="space-y-4">
-                    {customerServiceMetrics && customerServiceMetrics
-                      .filter(metric => metric.category === 'inquiries')
-                      .map(metric => (
+                    {data.customerMetrics.inquiries.map(metric => (
                       <div key={metric.id} className="flex justify-between items-center">
                         <input 
                           type="number" 
                           className="w-24 bg-background border border-border rounded-md p-2 text-right" 
-                          value={customerServiceForm.inquiries[metric.id] || 0}
+                          value={customerServiceForm.inquiries[metric.id]}
                           onChange={(e) => {
                             setCustomerServiceForm({
                               ...customerServiceForm,
@@ -290,7 +259,7 @@ const DataEntry = () => {
                             });
                           }}
                         />
-                        <span className="text-muted-foreground">{metric.metric_name}</span>
+                        <span className="text-muted-foreground">{metric.name}</span>
                       </div>
                     ))}
                   </div>
@@ -299,14 +268,12 @@ const DataEntry = () => {
                 <div className="bg-secondary rounded-md p-4">
                   <h4 className="font-medium mb-4 text-right">طلبات الصيانة</h4>
                   <div className="space-y-4">
-                    {customerServiceMetrics && customerServiceMetrics
-                      .filter(metric => metric.category === 'maintenance')
-                      .map(metric => (
+                    {data.customerMetrics.maintenance.map(metric => (
                       <div key={metric.id} className="flex justify-between items-center">
                         <input 
                           type="number" 
                           className="w-24 bg-background border border-border rounded-md p-2 text-right" 
-                          value={customerServiceForm.maintenance[metric.id] || 0}
+                          value={customerServiceForm.maintenance[metric.id]}
                           onChange={(e) => {
                             setCustomerServiceForm({
                               ...customerServiceForm,
@@ -317,7 +284,7 @@ const DataEntry = () => {
                             });
                           }}
                         />
-                        <span className="text-muted-foreground">{metric.metric_name}</span>
+                        <span className="text-muted-foreground">{metric.name}</span>
                       </div>
                     ))}
                   </div>
@@ -341,7 +308,7 @@ const DataEntry = () => {
               <h3 className="text-xl font-semibold mb-4 text-right">رضا العملاء</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {customerSatisfaction && customerSatisfaction.map(item => (
+                {data.customerSatisfaction.map(item => (
                   <div key={item.id} className="bg-secondary rounded-md p-4">
                     <h4 className="font-medium mb-4 text-right">{item.category}</h4>
                     <div className="space-y-4">

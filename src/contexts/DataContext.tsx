@@ -1,15 +1,12 @@
-
 import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 import { 
-  ViewMode,
+  ViewMode, 
+  Complaint,
   WeeklyData,
-  AnnualData,
-  PerformanceMetric,
-  CustomerMetric,
-  CustomerSatisfaction,
-  Complaint
+  AnnualData
 } from '../types';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DataContextType {
   viewMode: ViewMode;
@@ -18,9 +15,9 @@ interface DataContextType {
   annualData: AnnualData;
   updateWeeklyData: (data: Partial<WeeklyData>) => void;
   updateAnnualData: (data: Partial<AnnualData>) => void;
-  addComplaint: (complaint: Complaint) => void;
-  updateComplaint: (complaint: Complaint) => void;
-  deleteComplaint: (id: string) => void;
+  addComplaint: (complaint: Complaint) => Promise<void>;
+  updateComplaint: (complaint: Complaint, modifiedBy: string) => Promise<void>;
+  deleteComplaint: (id: string, modifiedBy: string) => Promise<void>;
 }
 
 const initialWeeklyData: WeeklyData = {
@@ -210,12 +207,11 @@ const initialWeeklyData: WeeklyData = {
   ]
 };
 
-// Clone the weekly data for the annual data with some modifications
 const initialAnnualData: AnnualData = {
   ...JSON.parse(JSON.stringify(initialWeeklyData)),
   performanceMetrics: JSON.parse(JSON.stringify(initialWeeklyData.performanceMetrics)).map(metric => ({
     ...metric,
-    value: metric.value * 1.2 // Just some variation for demo purposes
+    value: metric.value * 1.2
   }))
 };
 
@@ -236,30 +232,86 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     toast.success('تم تحديث البيانات بنجاح');
   }, []);
 
-  const addComplaint = useCallback((complaint: Complaint) => {
-    setWeeklyData(prev => ({
-      ...prev,
-      complaints: [...prev.complaints, complaint]
-    }));
-    toast.success('تم إضافة الشكوى بنجاح');
+  const addComplaint = useCallback(async (complaint: Complaint) => {
+    try {
+      await supabase.from('complaint_actions').insert({
+        complaint_id: complaint.id,
+        action_type: 'إنشاء',
+        action_details: 'تم إنشاء الشكوى',
+        modified_by: 'عدنان'
+      });
+
+      setWeeklyData(prev => ({
+        ...prev,
+        complaints: [...prev.complaints, complaint]
+      }));
+      
+      toast.success('تم إضافة الشكوى بنجاح');
+    } catch (error) {
+      console.error('Error adding complaint:', error);
+      toast.error('حدث خطأ أثناء إضافة الشكوى');
+    }
   }, []);
 
-  const updateComplaint = useCallback((updatedComplaint: Complaint) => {
-    setWeeklyData(prev => ({
-      ...prev,
-      complaints: prev.complaints.map(complaint => 
-        complaint.id === updatedComplaint.id ? updatedComplaint : complaint
-      )
-    }));
-    toast.success('تم تحديث الشكوى بنجاح');
-  }, []);
+  const updateComplaint = useCallback(async (updatedComplaint: Complaint, modifiedBy: string) => {
+    try {
+      const oldComplaint = weeklyData.complaints.find(c => c.id === updatedComplaint.id);
+      
+      const changes = [];
+      if (oldComplaint) {
+        if (oldComplaint.status !== updatedComplaint.status) {
+          changes.push(`تم تغيير الحالة من "${oldComplaint.status}" إلى "${updatedComplaint.status}"`);
+        }
+        if (oldComplaint.action !== updatedComplaint.action) {
+          changes.push('تم تحديث الإجراء المتخذ');
+        }
+        if (oldComplaint.details !== updatedComplaint.details) {
+          changes.push('تم تحديث تفاصيل الشكوى');
+        }
+      }
 
-  const deleteComplaint = useCallback((id: string) => {
-    setWeeklyData(prev => ({
-      ...prev,
-      complaints: prev.complaints.filter(complaint => complaint.id !== id)
-    }));
-    toast.success('تم حذف الشكوى بنجاح');
+      const actionDetails = changes.join(' • ') || 'تم تحديث الشكوى';
+
+      await supabase.from('complaint_actions').insert({
+        complaint_id: updatedComplaint.id,
+        action_type: 'تعديل',
+        action_details: actionDetails,
+        modified_by: modifiedBy
+      });
+
+      setWeeklyData(prev => ({
+        ...prev,
+        complaints: prev.complaints.map(complaint => 
+          complaint.id === updatedComplaint.id ? updatedComplaint : complaint
+        )
+      }));
+      
+      toast.success('تم تحديث الشكوى بنجاح');
+    } catch (error) {
+      console.error('Error updating complaint:', error);
+      toast.error('حدث خطأ أثناء تحديث الشكوى');
+    }
+  }, [weeklyData.complaints]);
+
+  const deleteComplaint = useCallback(async (id: string, modifiedBy: string) => {
+    try {
+      await supabase.from('complaint_actions').insert({
+        complaint_id: id,
+        action_type: 'حذف',
+        action_details: 'تم حذف الشكوى',
+        modified_by: modifiedBy
+      });
+
+      setWeeklyData(prev => ({
+        ...prev,
+        complaints: prev.complaints.filter(complaint => complaint.id !== id)
+      }));
+      
+      toast.success('تم حذف الشكوى بنجاح');
+    } catch (error) {
+      console.error('Error deleting complaint:', error);
+      toast.error('حدث خطأ أثناء حذف الشكوى');
+    }
   }, []);
 
   return (

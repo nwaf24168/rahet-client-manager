@@ -9,7 +9,162 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      complaint_actions: {
+        Row: {
+          action_details: string
+          action_type: string
+          complaint_id: string
+          created_at: string
+          id: string
+          modified_by: string
+        }
+        Insert: {
+          action_details: string
+          action_type: string
+          complaint_id: string
+          created_at?: string
+          id?: string
+          modified_by: string
+        }
+        Update: {
+          action_details?: string
+          action_type?: string
+          complaint_id?: string
+          created_at?: string
+          id?: string
+          modified_by?: string
+        }
+        Relationships: []
+      }
+      customer_satisfaction: {
+        Row: {
+          category: string
+          created_at: string | null
+          displeased: number
+          id: string
+          neutral: number
+          period_type: string
+          pleased: number
+          total_score: number
+          updated_at: string | null
+          very_displeased: number
+          very_pleased: number
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          displeased?: number
+          id?: string
+          neutral?: number
+          period_type: string
+          pleased?: number
+          total_score?: number
+          updated_at?: string | null
+          very_displeased?: number
+          very_pleased?: number
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          displeased?: number
+          id?: string
+          neutral?: number
+          period_type?: string
+          pleased?: number
+          total_score?: number
+          updated_at?: string | null
+          very_displeased?: number
+          very_pleased?: number
+        }
+        Relationships: []
+      }
+      customer_service_metrics: {
+        Row: {
+          category: string
+          created_at: string | null
+          id: string
+          metric_name: string
+          period_type: string
+          updated_at: string | null
+          value: number
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          id?: string
+          metric_name: string
+          period_type: string
+          updated_at?: string | null
+          value?: number
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          id?: string
+          metric_name?: string
+          period_type?: string
+          updated_at?: string | null
+          value?: number
+        }
+        Relationships: []
+      }
+      notes: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      performance_metrics: {
+        Row: {
+          change: number | null
+          created_at: string | null
+          id: string
+          is_positive: boolean | null
+          metric_name: string
+          period_type: string
+          target: number
+          target_achieved: boolean | null
+          updated_at: string | null
+          value: number
+        }
+        Insert: {
+          change?: number | null
+          created_at?: string | null
+          id?: string
+          is_positive?: boolean | null
+          metric_name: string
+          period_type: string
+          target: number
+          target_achieved?: boolean | null
+          updated_at?: string | null
+          value: number
+        }
+        Update: {
+          change?: number | null
+          created_at?: string | null
+          id?: string
+          is_positive?: boolean | null
+          metric_name?: string
+          period_type?: string
+          target?: number
+          target_achieved?: boolean | null
+          updated_at?: string | null
+          value?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

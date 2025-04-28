@@ -20,6 +20,7 @@ import {
   Clock
 } from 'lucide-react';
 import { toast } from 'sonner';
+import ComplaintActions from '@/components/ComplaintActions';
 
 const Complaints = () => {
   const { weeklyData, addComplaint, updateComplaint, deleteComplaint } = useData();

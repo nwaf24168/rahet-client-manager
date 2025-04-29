@@ -36,6 +36,51 @@ export type Database = {
         }
         Relationships: []
       }
+      complaints: {
+        Row: {
+          action: string | null
+          created_at: string | null
+          customer_name: string
+          date: string
+          details: string | null
+          id: string
+          number: string
+          project: string | null
+          source: string
+          status: string
+          unit_number: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          action?: string | null
+          created_at?: string | null
+          customer_name: string
+          date: string
+          details?: string | null
+          id: string
+          number: string
+          project?: string | null
+          source: string
+          status: string
+          unit_number?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          action?: string | null
+          created_at?: string | null
+          customer_name?: string
+          date?: string
+          details?: string | null
+          id?: string
+          number?: string
+          project?: string | null
+          source?: string
+          status?: string
+          unit_number?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       customer_satisfaction: {
         Row: {
           category: string

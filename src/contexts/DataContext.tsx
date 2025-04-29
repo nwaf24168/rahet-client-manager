@@ -1,10 +1,13 @@
 
-import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { 
   ViewMode, 
   Complaint,
   WeeklyData,
-  AnnualData
+  AnnualData,
+  PerformanceMetric,
+  CustomerMetric,
+  CustomerSatisfaction
 } from '../types';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,6 +17,7 @@ interface DataContextType {
   setViewMode: (mode: ViewMode) => void;
   weeklyData: WeeklyData;
   annualData: AnnualData;
+  isLoading: boolean;
   updateWeeklyData: (data: Partial<WeeklyData>) => void;
   updateAnnualData: (data: Partial<AnnualData>) => void;
   addComplaint: (complaint: Complaint) => Promise<void>;
@@ -21,228 +25,829 @@ interface DataContextType {
   deleteComplaint: (id: string, modifiedBy: string) => Promise<void>;
 }
 
-const initialWeeklyData: WeeklyData = {
-  performanceMetrics: [
-    { id: '1', name: 'نسبة الترشيح للعملاء الجدد', value: 0, target: 65, change: 100, isPositive: true, targetAchieved: false },
-    { id: '2', name: 'نسبة الترشيح بعد السنة', value: 0, target: 65, change: 100, isPositive: true, targetAchieved: false },
-    { id: '3', name: 'نسبة الترشيح للعملاء القدامى', value: -6.4, target: 30, change: 121.3, isPositive: false, targetAchieved: false },
-    { id: '4', name: 'جودة التسليم', value: 85, target: 100, change: 15, isPositive: false, targetAchieved: false },
-    { id: '5', name: 'جودة الصيانة', value: 67, target: 100, change: 33, isPositive: false, targetAchieved: false },
-    { id: '6', name: 'عدد التوالي للرد', value: 19, target: 3, change: 533.3, isPositive: false, targetAchieved: false },
-    { id: '7', name: 'معدل الرد على المكالمات', value: 89, target: 80, change: 11.3, isPositive: true, targetAchieved: true },
-    { id: '8', name: 'راحة العميل (CSAT)', value: 49.10, target: 70, change: 29.9, isPositive: false, targetAchieved: false },
-    { id: '9', name: 'سرعة إغلاق طلبات الصيانة', value: 2.09, target: 3, change: 30.3, isPositive: true, targetAchieved: true },
-    { id: '10', name: 'عدد إعادة فتح طلب', value: 33, target: 0, change: 0, isPositive: false, targetAchieved: false },
-    { id: '11', name: 'جودة إدارة المرافق', value: 80, target: 80, change: 1.8, isPositive: true, targetAchieved: true },
-    { id: '12', name: 'معدل التحول', value: 2, target: 2, change: 1.5, isPositive: true, targetAchieved: true },
-    { id: '13', name: 'نسبة الرضا عن التسليم', value: 53.37, target: 80, change: 33.3, isPositive: false, targetAchieved: false },
-    { id: '14', name: 'عدد العملاء المرشحين', value: 2645, target: 584, change: 352.9, isPositive: true, targetAchieved: true },
-    { id: '15', name: 'المساهمة في المبيعات', value: 27, target: 5, change: 440, isPositive: true, targetAchieved: true },
-  ],
+const emptyWeeklyData: WeeklyData = {
+  performanceMetrics: [],
   customerMetrics: {
-    calls: [
-      { id: 'c1', category: 'calls', name: 'شكاوى', value: 3 },
-      { id: 'c2', category: 'calls', name: 'طلبات تواصل', value: 12 },
-      { id: 'c3', category: 'calls', name: 'طلبات صيانة', value: 1 },
-      { id: 'c4', category: 'calls', name: 'استفسارات', value: 43 },
-      { id: 'c5', category: 'calls', name: 'مهتمين مكاتب', value: 10 },
-      { id: 'c6', category: 'calls', name: 'مهتمين مشاريع', value: 10 },
-      { id: 'c7', category: 'calls', name: 'عملاء مهتمين', value: 117 },
-    ],
-    inquiries: [
-      { id: 'i1', category: 'inquiries', name: 'استفسارات عامة', value: 31 },
-      { id: 'i2', category: 'inquiries', name: 'طلب وثائق', value: 0 },
-      { id: 'i3', category: 'inquiries', name: 'استفسارات صكوك', value: 2 },
-      { id: 'i4', category: 'inquiries', name: 'تأجير شقق', value: 9 },
-      { id: 'i5', category: 'inquiries', name: 'مشاريع مباعة', value: 4 },
-    ],
-    maintenance: [
-      { id: 'm1', category: 'maintenance', name: 'منتهية', value: 0 },
-      { id: 'm2', category: 'maintenance', name: 'منجزة', value: 1 },
-      { id: 'm3', category: 'maintenance', name: 'قيد المعالجة', value: 1 },
-    ]
+    calls: [],
+    inquiries: [],
+    maintenance: []
   },
-  customerSatisfaction: [
-    { 
-      id: 'cs1', 
-      category: 'الحل من أول مرة',
-      veryPleased: 35,
-      pleased: 38,
-      neutral: 18,
-      displeased: 6,
-      veryDispleased: 3,
-      totalScore: 74.0
-    },
-    { 
-      id: 'cs2', 
-      category: 'وقت الإغلاق',
-      veryPleased: 25,
-      pleased: 45,
-      neutral: 20,
-      displeased: 7,
-      veryDispleased: 3,
-      totalScore: 70.5
-    },
-    { 
-      id: 'cs3', 
-      category: 'جودة الخدمة',
-      veryPleased: 30,
-      pleased: 40,
-      neutral: 20,
-      displeased: 8,
-      veryDispleased: 2,
-      totalScore: 72.0
-    },
-  ],
-  complaints: [
-    { 
-      id: 'comp1', 
-      number: '1001', 
-      date: '2025-01-01', 
-      customerName: 'أحمد العصيباني', 
-      project: 'تل الرمال المالية', 
-      status: 'تم حلها',
-      source: 'الاستبيان',
-      details: 'الشيك مصدر للصندوق ولم نتلق مبلغ الضريبة. تم التواصل مع الصندوق و رد الضريبة للعميل من قبلنا',
-      action: 'تم التواصل مع الصندوق'
-    },
-    { 
-      id: 'comp2', 
-      number: '1002', 
-      date: '2025-02-27', 
-      customerName: 'راشد المحنا', 
-      project: '19', 
-      status: 'تم حلها',
-      source: 'الاستبيان',
-      details: 'تأخر في تسليم الوحدة',
-      action: 'تم التواصل مع العميل وحل المشكلة'
-    },
-    { 
-      id: 'comp3', 
-      number: '1003', 
-      date: '2025-01-26', 
-      customerName: 'نورة المسفر', 
-      project: 'المعالي', 
-      status: 'تم حلها',
-      source: 'البريد الإلكتروني',
-      details: 'مشكلة في التكييف',
-      action: 'تم إرسال فني صيانة'
-    },
-    { 
-      id: 'comp4', 
-      number: '1004', 
-      date: '2025-01-28', 
-      customerName: 'حمد الحسين', 
-      project: 'النخيل', 
-      status: 'تحت المعالجة',
-      source: 'الهاتف',
-      details: 'تسرب مياه في الحمام',
-      action: 'جدولة زيارة فني'
-    },
-    { 
-      id: 'comp5', 
-      number: '1005', 
-      date: '2025-02-17', 
-      customerName: 'تركي السعيد', 
-      project: 'المعالي', 
-      status: 'تم حلها',
-      source: 'تطبيق الجوال',
-      details: 'مشكلة في الإضاءة',
-      action: 'تم الإصلاح'
-    },
-    { 
-      id: 'comp6', 
-      number: '1006', 
-      date: '2025-01-15', 
-      customerName: 'إيمان السبيعاني', 
-      project: '', 
-      status: 'تم حلها',
-      source: 'الموقع الإلكتروني',
-      details: 'استفسار عن موعد التسليم',
-      action: 'تم الرد على الاستفسار'
-    },
-    { 
-      id: 'comp7', 
-      number: '1007', 
-      date: '2025-02-16', 
-      customerName: 'عبدالغني التميمي', 
-      project: '41', 
-      status: 'لم يتم حلها',
-      source: 'الاستبيان',
-      details: 'تأخير في موعد التسليم المتفق عليه',
-      action: 'قيد المتابعة مع إدارة المشاريع'
-    },
-    { 
-      id: 'comp8', 
-      number: '1008', 
-      date: '2025-01-19', 
-      customerName: 'سعود العويس', 
-      project: '', 
-      status: 'تم حلها',
-      source: 'الهاتف',
-      details: 'مشكلة في فاتورة الصيانة',
-      action: 'تم تصحيح الفاتورة'
-    },
-    { 
-      id: 'comp9', 
-      number: '1009', 
-      date: '2025-02-19', 
-      customerName: 'عمر العنبري', 
-      project: 'النخيل', 
-      status: 'تحت المعالجة',
-      source: 'البريد الإلكتروني',
-      details: 'مشكلة في التكييف المركزي',
-      action: 'تم جدولة زيارة فني مختص'
-    },
-    { 
-      id: 'comp10', 
-      number: '1010', 
-      date: '2025-03-06', 
-      customerName: 'عبدالرحمن القبيسي', 
-      project: 'تل الرمال', 
-      status: 'تم حلها',
-      source: 'تطبيق الجوال',
-      details: 'مشكلة في موقف السيارة',
-      action: 'تم حل المشكلة'
-    },
-  ]
+  customerSatisfaction: [],
+  complaints: []
 };
 
-const initialAnnualData: AnnualData = {
-  ...JSON.parse(JSON.stringify(initialWeeklyData)),
-  performanceMetrics: JSON.parse(JSON.stringify(initialWeeklyData.performanceMetrics)).map(metric => ({
-    ...metric,
-    value: metric.value * 1.2
-  }))
+const emptyAnnualData: AnnualData = {
+  ...JSON.parse(JSON.stringify(emptyWeeklyData))
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [viewMode, setViewMode] = useState<ViewMode>("weekly");
-  const [weeklyData, setWeeklyData] = useState<WeeklyData>(initialWeeklyData);
-  const [annualData, setAnnualData] = useState<AnnualData>(initialAnnualData);
+  const [weeklyData, setWeeklyData] = useState<WeeklyData>(emptyWeeklyData);
+  const [annualData, setAnnualData] = useState<AnnualData>(emptyAnnualData);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [currentUser] = useState('نواف'); // Default user for modifications
 
-  const updateWeeklyData = useCallback((data: Partial<WeeklyData>) => {
-    setWeeklyData(prev => ({ ...prev, ...data }));
-    toast.success('تم تحديث البيانات بنجاح');
+  // استرجاع البيانات من قاعدة البيانات عند بدء التشغيل
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      
+      try {
+        await Promise.all([
+          fetchPerformanceMetrics(),
+          fetchCustomerMetrics(),
+          fetchCustomerSatisfaction(),
+          fetchComplaints()
+        ]);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        toast.error('حدث خطأ أثناء استرجاع البيانات');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
-  const updateAnnualData = useCallback((data: Partial<AnnualData>) => {
-    setAnnualData(prev => ({ ...prev, ...data }));
-    toast.success('تم تحديث البيانات بنجاح');
+  const fetchPerformanceMetrics = async () => {
+    // استرجاع مؤشرات الأداء الأسبوعية
+    const { data: weeklyMetrics, error: weeklyError } = await supabase
+      .from('performance_metrics')
+      .select('*')
+      .eq('period_type', 'weekly');
+
+    if (weeklyError) {
+      console.error('Error fetching weekly performance metrics:', weeklyError);
+      return;
+    }
+
+    // استرجاع مؤشرات الأداء السنوية
+    const { data: annualMetrics, error: annualError } = await supabase
+      .from('performance_metrics')
+      .select('*')
+      .eq('period_type', 'annual');
+
+    if (annualError) {
+      console.error('Error fetching annual performance metrics:', annualError);
+      return;
+    }
+
+    // في حالة عدم وجود بيانات، إنشاء البيانات الافتراضية
+    if (weeklyMetrics?.length === 0) {
+      await createDefaultPerformanceMetrics('weekly');
+    }
+
+    if (annualMetrics?.length === 0) {
+      await createDefaultPerformanceMetrics('annual');
+    }
+
+    // إعادة استرجاع البيانات بعد إنشاء البيانات الافتراضية إذا لزم الأمر
+    const { data: updatedWeeklyMetrics } = await supabase
+      .from('performance_metrics')
+      .select('*')
+      .eq('period_type', 'weekly');
+
+    const { data: updatedAnnualMetrics } = await supabase
+      .from('performance_metrics')
+      .select('*')
+      .eq('period_type', 'annual');
+
+    setWeeklyData(prev => ({
+      ...prev,
+      performanceMetrics: mapPerformanceMetrics(updatedWeeklyMetrics || [])
+    }));
+
+    setAnnualData(prev => ({
+      ...prev,
+      performanceMetrics: mapPerformanceMetrics(updatedAnnualMetrics || [])
+    }));
+  };
+
+  const fetchCustomerMetrics = async () => {
+    // استرجاع مقاييس خدمة العملاء الأسبوعية
+    const { data: weeklyMetrics, error: weeklyError } = await supabase
+      .from('customer_service_metrics')
+      .select('*')
+      .eq('period_type', 'weekly');
+
+    if (weeklyError) {
+      console.error('Error fetching weekly customer metrics:', weeklyError);
+      return;
+    }
+
+    // استرجاع مقاييس خدمة العملاء السنوية
+    const { data: annualMetrics, error: annualError } = await supabase
+      .from('customer_service_metrics')
+      .select('*')
+      .eq('period_type', 'annual');
+
+    if (annualError) {
+      console.error('Error fetching annual customer metrics:', annualError);
+      return;
+    }
+
+    // في حالة عدم وجود بيانات، إنشاء البيانات الافتراضية
+    if (weeklyMetrics?.length === 0) {
+      await createDefaultCustomerMetrics('weekly');
+    }
+
+    if (annualMetrics?.length === 0) {
+      await createDefaultCustomerMetrics('annual');
+    }
+
+    // إعادة استرجاع البيانات بعد إنشاء البيانات الافتراضية إذا لزم الأمر
+    const { data: updatedWeeklyMetrics } = await supabase
+      .from('customer_service_metrics')
+      .select('*')
+      .eq('period_type', 'weekly');
+
+    const { data: updatedAnnualMetrics } = await supabase
+      .from('customer_service_metrics')
+      .select('*')
+      .eq('period_type', 'annual');
+
+    // تحويل البيانات إلى التنسيق المطلوب
+    const weeklyCustomerMetrics = mapCustomerMetrics(updatedWeeklyMetrics || []);
+    const annualCustomerMetrics = mapCustomerMetrics(updatedAnnualMetrics || []);
+
+    setWeeklyData(prev => ({
+      ...prev,
+      customerMetrics: weeklyCustomerMetrics
+    }));
+
+    setAnnualData(prev => ({
+      ...prev,
+      customerMetrics: annualCustomerMetrics
+    }));
+  };
+
+  const fetchCustomerSatisfaction = async () => {
+    // استرجاع بيانات رضا العملاء الأسبوعية
+    const { data: weeklySatisfaction, error: weeklyError } = await supabase
+      .from('customer_satisfaction')
+      .select('*')
+      .eq('period_type', 'weekly');
+
+    if (weeklyError) {
+      console.error('Error fetching weekly customer satisfaction:', weeklyError);
+      return;
+    }
+
+    // استرجاع بيانات رضا العملاء السنوية
+    const { data: annualSatisfaction, error: annualError } = await supabase
+      .from('customer_satisfaction')
+      .select('*')
+      .eq('period_type', 'annual');
+
+    if (annualError) {
+      console.error('Error fetching annual customer satisfaction:', annualError);
+      return;
+    }
+
+    // في حالة عدم وجود بيانات، إنشاء البيانات الافتراضية
+    if (weeklySatisfaction?.length === 0) {
+      await createDefaultCustomerSatisfaction('weekly');
+    }
+
+    if (annualSatisfaction?.length === 0) {
+      await createDefaultCustomerSatisfaction('annual');
+    }
+
+    // إعادة استرجاع البيانات بعد إنشاء البيانات الافتراضية إذا لزم الأمر
+    const { data: updatedWeeklySatisfaction } = await supabase
+      .from('customer_satisfaction')
+      .select('*')
+      .eq('period_type', 'weekly');
+
+    const { data: updatedAnnualSatisfaction } = await supabase
+      .from('customer_satisfaction')
+      .select('*')
+      .eq('period_type', 'annual');
+
+    setWeeklyData(prev => ({
+      ...prev,
+      customerSatisfaction: mapCustomerSatisfaction(updatedWeeklySatisfaction || [])
+    }));
+
+    setAnnualData(prev => ({
+      ...prev,
+      customerSatisfaction: mapCustomerSatisfaction(updatedAnnualSatisfaction || [])
+    }));
+  };
+
+  const fetchComplaints = async () => {
+    // استرجاع الشكاوى
+    const { data, error } = await supabase
+      .from('complaints')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching complaints:', error);
+      return;
+    }
+
+    // في حالة عدم وجود بيانات، إنشاء البيانات الافتراضية
+    if (data?.length === 0) {
+      await createDefaultComplaints();
+    }
+
+    // إعادة استرجاع البيانات بعد إنشاء البيانات الافتراضية إذا لزم الأمر
+    const { data: updatedData } = await supabase
+      .from('complaints')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    const complaints = (updatedData || []).map(item => ({
+      id: item.id,
+      number: item.number,
+      date: item.date,
+      customerName: item.customer_name,
+      project: item.project || '',
+      unitNumber: item.unit_number || '',
+      status: item.status,
+      source: item.source,
+      details: item.details || '',
+      action: item.action || ''
+    }));
+
+    setWeeklyData(prev => ({ ...prev, complaints }));
+    setAnnualData(prev => ({ ...prev, complaints }));
+  };
+
+  // دوال مساعدة لتحويل تنسيق البيانات
+  const mapPerformanceMetrics = (data: any[]): PerformanceMetric[] => {
+    return data.map(item => ({
+      id: item.id,
+      name: item.metric_name,
+      value: item.value,
+      target: item.target,
+      change: item.change,
+      isPositive: item.is_positive,
+      targetAchieved: item.target_achieved
+    }));
+  };
+
+  const mapCustomerMetrics = (data: any[]) => {
+    const calls = data.filter(item => item.category === 'calls').map(item => ({
+      id: item.id,
+      category: item.category,
+      name: item.metric_name,
+      value: item.value
+    }));
+
+    const inquiries = data.filter(item => item.category === 'inquiries').map(item => ({
+      id: item.id,
+      category: item.category,
+      name: item.metric_name,
+      value: item.value
+    }));
+
+    const maintenance = data.filter(item => item.category === 'maintenance').map(item => ({
+      id: item.id,
+      category: item.category,
+      name: item.metric_name,
+      value: item.value
+    }));
+
+    return {
+      calls,
+      inquiries,
+      maintenance
+    };
+  };
+
+  const mapCustomerSatisfaction = (data: any[]): CustomerSatisfaction[] => {
+    return data.map(item => ({
+      id: item.id,
+      category: item.category,
+      veryPleased: item.very_pleased,
+      pleased: item.pleased,
+      neutral: item.neutral,
+      displeased: item.displeased,
+      veryDispleased: item.very_displeased,
+      totalScore: item.total_score
+    }));
+  };
+
+  // دوال إنشاء البيانات الافتراضية
+  const createDefaultPerformanceMetrics = async (periodType: 'weekly' | 'annual') => {
+    const defaultMetrics = [
+      { name: 'نسبة الترشيح للعملاء الجدد', value: periodType === 'weekly' ? 0 : 0 * 1.2, target: 65, change: 100, is_positive: true, target_achieved: false },
+      { name: 'نسبة الترشيح بعد السنة', value: periodType === 'weekly' ? 0 : 0 * 1.2, target: 65, change: 100, is_positive: true, target_achieved: false },
+      { name: 'نسبة الترشيح للعملاء القدامى', value: periodType === 'weekly' ? -6.4 : -6.4 * 1.2, target: 30, change: 121.3, is_positive: false, target_achieved: false },
+      { name: 'جودة التسليم', value: periodType === 'weekly' ? 85 : 85 * 1.2, target: 100, change: 15, is_positive: false, target_achieved: false },
+      { name: 'جودة الصيانة', value: periodType === 'weekly' ? 67 : 67 * 1.2, target: 100, change: 33, is_positive: false, target_achieved: false },
+      { name: 'عدد التوالي للرد', value: periodType === 'weekly' ? 19 : 19 * 1.2, target: 3, change: 533.3, is_positive: false, target_achieved: false },
+      { name: 'معدل الرد على المكالمات', value: periodType === 'weekly' ? 89 : 89 * 1.2, target: 80, change: 11.3, is_positive: true, target_achieved: true },
+      { name: 'راحة العميل (CSAT)', value: periodType === 'weekly' ? 49.10 : 49.10 * 1.2, target: 70, change: 29.9, is_positive: false, target_achieved: false },
+      { name: 'سرعة إغلاق طلبات الصيانة', value: periodType === 'weekly' ? 2.09 : 2.09 * 1.2, target: 3, change: 30.3, is_positive: true, target_achieved: true },
+      { name: 'عدد إعادة فتح طلب', value: periodType === 'weekly' ? 33 : 33 * 1.2, target: 0, change: 0, is_positive: false, target_achieved: false },
+      { name: 'جودة إدارة المرافق', value: periodType === 'weekly' ? 80 : 80 * 1.2, target: 80, change: 1.8, is_positive: true, target_achieved: true },
+      { name: 'معدل التحول', value: periodType === 'weekly' ? 2 : 2 * 1.2, target: 2, change: 1.5, is_positive: true, target_achieved: true },
+      { name: 'نسبة الرضا عن التسليم', value: periodType === 'weekly' ? 53.37 : 53.37 * 1.2, target: 80, change: 33.3, is_positive: false, target_achieved: false },
+      { name: 'عدد العملاء المرشحين', value: periodType === 'weekly' ? 2645 : 2645 * 1.2, target: 584, change: 352.9, is_positive: true, target_achieved: true },
+      { name: 'المساهمة في المبيعات', value: periodType === 'weekly' ? 27 : 27 * 1.2, target: 5, change: 440, is_positive: true, target_achieved: true }
+    ];
+
+    // إضافة البيانات الافتراضية إلى قاعدة البيانات
+    for (const metric of defaultMetrics) {
+      try {
+        await supabase.from('performance_metrics').insert({
+          metric_name: metric.name,
+          value: metric.value,
+          target: metric.target,
+          change: metric.change,
+          is_positive: metric.is_positive,
+          target_achieved: metric.target_achieved,
+          period_type: periodType
+        });
+      } catch (error) {
+        console.error(`Error creating default ${periodType} performance metric:`, error);
+      }
+    }
+  };
+
+  const createDefaultCustomerMetrics = async (periodType: 'weekly' | 'annual') => {
+    const defaultCalls = [
+      { category: 'calls', name: 'شكاوى', value: 3 },
+      { category: 'calls', name: 'طلبات تواصل', value: 12 },
+      { category: 'calls', name: 'طلبات صيانة', value: 1 },
+      { category: 'calls', name: 'استفسارات', value: 43 },
+      { category: 'calls', name: 'مهتمين مكاتب', value: 10 },
+      { category: 'calls', name: 'مهتمين مشاريع', value: 10 },
+      { category: 'calls', name: 'عملاء مهتمين', value: 117 }
+    ];
+
+    const defaultInquiries = [
+      { category: 'inquiries', name: 'استفسارات عامة', value: 31 },
+      { category: 'inquiries', name: 'طلب وثائق', value: 0 },
+      { category: 'inquiries', name: 'استفسارات صكوك', value: 2 },
+      { category: 'inquiries', name: 'تأجير شقق', value: 9 },
+      { category: 'inquiries', name: 'مشاريع مباعة', value: 4 }
+    ];
+
+    const defaultMaintenance = [
+      { category: 'maintenance', name: 'منتهية', value: 0 },
+      { category: 'maintenance', name: 'منجزة', value: 1 },
+      { category: 'maintenance', name: 'قيد المعالجة', value: 1 }
+    ];
+
+    const allMetrics = [...defaultCalls, ...defaultInquiries, ...defaultMaintenance];
+
+    // إضافة البيانات الافتراضية إلى قاعدة البيانات
+    for (const metric of allMetrics) {
+      try {
+        await supabase.from('customer_service_metrics').insert({
+          category: metric.category,
+          metric_name: metric.name,
+          value: metric.value,
+          period_type: periodType
+        });
+      } catch (error) {
+        console.error(`Error creating default ${periodType} customer metric:`, error);
+      }
+    }
+  };
+
+  const createDefaultCustomerSatisfaction = async (periodType: 'weekly' | 'annual') => {
+    const defaultSatisfaction = [
+      { 
+        category: 'الحل من أول مرة',
+        very_pleased: 35,
+        pleased: 38,
+        neutral: 18,
+        displeased: 6,
+        very_displeased: 3,
+        total_score: 74.0
+      },
+      { 
+        category: 'وقت الإغلاق',
+        very_pleased: 25,
+        pleased: 45,
+        neutral: 20,
+        displeased: 7,
+        very_displeased: 3,
+        total_score: 70.5
+      },
+      { 
+        category: 'جودة الخدمة',
+        very_pleased: 30,
+        pleased: 40,
+        neutral: 20,
+        displeased: 8,
+        very_displeased: 2,
+        total_score: 72.0
+      }
+    ];
+
+    // إضافة البيانات الافتراضية إلى قاعدة البيانات
+    for (const item of defaultSatisfaction) {
+      try {
+        await supabase.from('customer_satisfaction').insert({
+          ...item,
+          period_type: periodType
+        });
+      } catch (error) {
+        console.error(`Error creating default ${periodType} customer satisfaction:`, error);
+      }
+    }
+  };
+
+  const createDefaultComplaints = async () => {
+    const defaultComplaints = [
+      { 
+        id: 'comp1', 
+        number: '1001', 
+        date: '2025-01-01', 
+        customer_name: 'أحمد العصيباني', 
+        project: 'تل الرمال المالية', 
+        status: 'تم حلها',
+        source: 'الاستبيان',
+        details: 'الشيك مصدر للصندوق ولم نتلق مبلغ الضريبة. تم التواصل مع الصندوق و رد الضريبة للعميل من قبلنا',
+        action: 'تم التواصل مع الصندوق'
+      },
+      { 
+        id: 'comp2', 
+        number: '1002', 
+        date: '2025-02-27', 
+        customer_name: 'راشد المحنا', 
+        project: '19', 
+        status: 'تم حلها',
+        source: 'الاستبيان',
+        details: 'تأخر في تسليم الوحدة',
+        action: 'تم التواصل مع العميل وحل المشكلة'
+      },
+      { 
+        id: 'comp3', 
+        number: '1003', 
+        date: '2025-01-26', 
+        customer_name: 'نورة المسفر', 
+        project: 'المعالي', 
+        status: 'تم حلها',
+        source: 'البريد الإلكتروني',
+        details: 'مشكلة في التكييف',
+        action: 'تم إرسال فني صيانة'
+      },
+      { 
+        id: 'comp4', 
+        number: '1004', 
+        date: '2025-01-28', 
+        customer_name: 'حمد الحسين', 
+        project: 'النخيل', 
+        status: 'تحت المعالجة',
+        source: 'الهاتف',
+        details: 'تسرب مياه في الحمام',
+        action: 'جدولة زيارة فني'
+      },
+      { 
+        id: 'comp5', 
+        number: '1005', 
+        date: '2025-02-17', 
+        customer_name: 'تركي السعيد', 
+        project: 'المعالي', 
+        status: 'تم حلها',
+        source: 'تطبيق الجوال',
+        details: 'مشكلة في الإضاءة',
+        action: 'تم الإصلاح'
+      },
+      { 
+        id: 'comp6', 
+        number: '1006', 
+        date: '2025-01-15', 
+        customer_name: 'إيمان السبيعاني', 
+        project: '', 
+        status: 'تم حلها',
+        source: 'الموقع الإلكتروني',
+        details: 'استفسار عن موعد التسليم',
+        action: 'تم الرد على الاستفسار'
+      },
+      { 
+        id: 'comp7', 
+        number: '1007', 
+        date: '2025-02-16', 
+        customer_name: 'عبدالغني التميمي', 
+        project: '41', 
+        status: 'لم يتم حلها',
+        source: 'الاستبيان',
+        details: 'تأخير في موعد التسليم المتفق عليه',
+        action: 'قيد المتابعة مع إدارة المشاريع'
+      },
+      { 
+        id: 'comp8', 
+        number: '1008', 
+        date: '2025-01-19', 
+        customer_name: 'سعود العويس', 
+        project: '', 
+        status: 'تم حلها',
+        source: 'الهاتف',
+        details: 'مشكلة في فاتورة الصيانة',
+        action: 'تم تصحيح الفاتورة'
+      },
+      { 
+        id: 'comp9', 
+        number: '1009', 
+        date: '2025-02-19', 
+        customer_name: 'عمر العنبري', 
+        project: 'النخيل', 
+        status: 'تحت المعالجة',
+        source: 'البريد الإلكتروني',
+        details: 'مشكلة في التكييف المركزي',
+        action: 'تم جدولة زيارة فني مختص'
+      },
+      { 
+        id: 'comp10', 
+        number: '1010', 
+        date: '2025-03-06', 
+        customer_name: 'عبدالرحمن القبيسي', 
+        project: 'تل الرمال', 
+        status: 'تم حلها',
+        source: 'تطبيق الجوال',
+        details: 'مشكلة في موقف السيارة',
+        action: 'تم حل المشكلة'
+      }
+    ];
+
+    // إضافة البيانات الافتراضية إلى قاعدة البيانات
+    for (const complaint of defaultComplaints) {
+      try {
+        await supabase.from('complaints').insert(complaint);
+        
+        // إضافة إجراء إنشاء لكل شكوى
+        await supabase.from('complaint_actions').insert({
+          complaint_id: complaint.id,
+          action_type: 'إنشاء',
+          action_details: 'تم إنشاء الشكوى',
+          modified_by: currentUser
+        });
+      } catch (error) {
+        console.error('Error creating default complaint:', error);
+      }
+    }
+  };
+
+  const updateWeeklyData = useCallback(async (data: Partial<WeeklyData>) => {
+    try {
+      // تحديث مؤشرات الأداء
+      if (data.performanceMetrics) {
+        for (const metric of data.performanceMetrics) {
+          // البحث عن المقياس في قاعدة البيانات
+          const { data: existingMetrics } = await supabase
+            .from('performance_metrics')
+            .select('*')
+            .eq('metric_name', metric.name)
+            .eq('period_type', 'weekly')
+            .limit(1);
+
+          const metricData = {
+            metric_name: metric.name,
+            value: metric.value,
+            target: metric.target,
+            change: metric.change,
+            is_positive: metric.isPositive,
+            target_achieved: metric.targetAchieved,
+            period_type: 'weekly'
+          };
+
+          if (existingMetrics && existingMetrics.length > 0) {
+            // تحديث المقياس الموجود
+            await supabase
+              .from('performance_metrics')
+              .update(metricData)
+              .eq('id', existingMetrics[0].id);
+          } else {
+            // إضافة مقياس جديد
+            await supabase.from('performance_metrics').insert(metricData);
+          }
+        }
+      }
+
+      // تحديث مقاييس خدمة العملاء
+      if (data.customerMetrics) {
+        // تحديث المكالمات
+        if (data.customerMetrics.calls) {
+          await updateCustomerMetricsCategory(data.customerMetrics.calls, 'calls', 'weekly');
+        }
+
+        // تحديث الاستفسارات
+        if (data.customerMetrics.inquiries) {
+          await updateCustomerMetricsCategory(data.customerMetrics.inquiries, 'inquiries', 'weekly');
+        }
+
+        // تحديث الصيانة
+        if (data.customerMetrics.maintenance) {
+          await updateCustomerMetricsCategory(data.customerMetrics.maintenance, 'maintenance', 'weekly');
+        }
+      }
+
+      // تحديث رضا العملاء
+      if (data.customerSatisfaction) {
+        for (const item of data.customerSatisfaction) {
+          // البحث عن العنصر في قاعدة البيانات
+          const { data: existingItems } = await supabase
+            .from('customer_satisfaction')
+            .select('*')
+            .eq('category', item.category)
+            .eq('period_type', 'weekly')
+            .limit(1);
+
+          const satisfactionData = {
+            category: item.category,
+            very_pleased: item.veryPleased,
+            pleased: item.pleased,
+            neutral: item.neutral,
+            displeased: item.displeased,
+            very_displeased: item.veryDispleased,
+            total_score: item.totalScore,
+            period_type: 'weekly'
+          };
+
+          if (existingItems && existingItems.length > 0) {
+            // تحديث العنصر الموجود
+            await supabase
+              .from('customer_satisfaction')
+              .update(satisfactionData)
+              .eq('id', existingItems[0].id);
+          } else {
+            // إضافة عنصر جديد
+            await supabase.from('customer_satisfaction').insert(satisfactionData);
+          }
+        }
+      }
+
+      setWeeklyData(prev => ({ ...prev, ...data }));
+      toast.success('تم تحديث البيانات بنجاح');
+    } catch (error) {
+      console.error('Error updating weekly data:', error);
+      toast.error('حدث خطأ أثناء تحديث البيانات');
+    }
   }, []);
+
+  const updateAnnualData = useCallback(async (data: Partial<AnnualData>) => {
+    try {
+      // تحديث مؤشرات الأداء
+      if (data.performanceMetrics) {
+        for (const metric of data.performanceMetrics) {
+          // البحث عن المقياس في قاعدة البيانات
+          const { data: existingMetrics } = await supabase
+            .from('performance_metrics')
+            .select('*')
+            .eq('metric_name', metric.name)
+            .eq('period_type', 'annual')
+            .limit(1);
+
+          const metricData = {
+            metric_name: metric.name,
+            value: metric.value,
+            target: metric.target,
+            change: metric.change,
+            is_positive: metric.isPositive,
+            target_achieved: metric.targetAchieved,
+            period_type: 'annual'
+          };
+
+          if (existingMetrics && existingMetrics.length > 0) {
+            // تحديث المقياس الموجود
+            await supabase
+              .from('performance_metrics')
+              .update(metricData)
+              .eq('id', existingMetrics[0].id);
+          } else {
+            // إضافة مقياس جديد
+            await supabase.from('performance_metrics').insert(metricData);
+          }
+        }
+      }
+
+      // تحديث مقاييس خدمة العملاء
+      if (data.customerMetrics) {
+        // تحديث المكالمات
+        if (data.customerMetrics.calls) {
+          await updateCustomerMetricsCategory(data.customerMetrics.calls, 'calls', 'annual');
+        }
+
+        // تحديث الاستفسارات
+        if (data.customerMetrics.inquiries) {
+          await updateCustomerMetricsCategory(data.customerMetrics.inquiries, 'inquiries', 'annual');
+        }
+
+        // تحديث الصيانة
+        if (data.customerMetrics.maintenance) {
+          await updateCustomerMetricsCategory(data.customerMetrics.maintenance, 'maintenance', 'annual');
+        }
+      }
+
+      // تحديث رضا العملاء
+      if (data.customerSatisfaction) {
+        for (const item of data.customerSatisfaction) {
+          // البحث عن العنصر في قاعدة البيانات
+          const { data: existingItems } = await supabase
+            .from('customer_satisfaction')
+            .select('*')
+            .eq('category', item.category)
+            .eq('period_type', 'annual')
+            .limit(1);
+
+          const satisfactionData = {
+            category: item.category,
+            very_pleased: item.veryPleased,
+            pleased: item.pleased,
+            neutral: item.neutral,
+            displeased: item.displeased,
+            very_displeased: item.veryDispleased,
+            total_score: item.totalScore,
+            period_type: 'annual'
+          };
+
+          if (existingItems && existingItems.length > 0) {
+            // تحديث العنصر الموجود
+            await supabase
+              .from('customer_satisfaction')
+              .update(satisfactionData)
+              .eq('id', existingItems[0].id);
+          } else {
+            // إضافة عنصر جديد
+            await supabase.from('customer_satisfaction').insert(satisfactionData);
+          }
+        }
+      }
+
+      setAnnualData(prev => ({ ...prev, ...data }));
+      toast.success('تم تحديث البيانات بنجاح');
+    } catch (error) {
+      console.error('Error updating annual data:', error);
+      toast.error('حدث خطأ أثناء تحديث البيانات');
+    }
+  }, []);
+
+  // دالة مساعدة لتحديث فئة معينة من مقاييس خدمة العملاء
+  const updateCustomerMetricsCategory = async (metrics: CustomerMetric[], category: string, periodType: string) => {
+    for (const metric of metrics) {
+      // البحث عن المقياس في قاعدة البيانات
+      const { data: existingMetrics } = await supabase
+        .from('customer_service_metrics')
+        .select('*')
+        .eq('metric_name', metric.name)
+        .eq('category', category)
+        .eq('period_type', periodType)
+        .limit(1);
+
+      const metricData = {
+        metric_name: metric.name,
+        value: metric.value,
+        category: category,
+        period_type: periodType
+      };
+
+      if (existingMetrics && existingMetrics.length > 0) {
+        // تحديث المقياس الموجود
+        await supabase
+          .from('customer_service_metrics')
+          .update(metricData)
+          .eq('id', existingMetrics[0].id);
+      } else {
+        // إضافة مقياس جديد
+        await supabase.from('customer_service_metrics').insert(metricData);
+      }
+    }
+  };
 
   const addComplaint = useCallback(async (complaint: Complaint) => {
     try {
+      // إضافة الشكوى إلى قاعدة البيانات
+      const { error } = await supabase.from('complaints').insert({
+        id: complaint.id,
+        number: complaint.number,
+        date: complaint.date,
+        customer_name: complaint.customerName,
+        project: complaint.project,
+        unit_number: complaint.unitNumber,
+        status: complaint.status,
+        source: complaint.source,
+        details: complaint.details,
+        action: complaint.action
+      });
+
+      if (error) throw error;
+
+      // إضافة إجراء "إنشاء" إلى سجل الإجراءات
       await supabase.from('complaint_actions').insert({
         complaint_id: complaint.id,
         action_type: 'إنشاء',
         action_details: 'تم إنشاء الشكوى',
-        modified_by: 'نواف'
+        modified_by: currentUser
       });
 
+      // تحديث البيانات المحلية
       setWeeklyData(prev => ({
+        ...prev,
+        complaints: [...prev.complaints, complaint]
+      }));
+      
+      setAnnualData(prev => ({
         ...prev,
         complaints: [...prev.complaints, complaint]
       }));
@@ -252,11 +857,25 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       console.error('Error adding complaint:', error);
       toast.error('حدث خطأ أثناء إضافة الشكوى');
     }
-  }, []);
+  }, [currentUser]);
 
   const updateComplaint = useCallback(async (updatedComplaint: Complaint, modifiedBy: string) => {
     try {
       const oldComplaint = weeklyData.complaints.find(c => c.id === updatedComplaint.id);
+      
+      // تحديث الشكوى في قاعدة البيانات
+      const { error } = await supabase.from('complaints').update({
+        date: updatedComplaint.date,
+        customer_name: updatedComplaint.customerName,
+        project: updatedComplaint.project,
+        unit_number: updatedComplaint.unitNumber,
+        status: updatedComplaint.status,
+        source: updatedComplaint.source,
+        details: updatedComplaint.details,
+        action: updatedComplaint.action
+      }).eq('id', updatedComplaint.id);
+
+      if (error) throw error;
       
       const changes = [];
       if (oldComplaint) {
@@ -269,7 +888,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         if (oldComplaint.details !== updatedComplaint.details) {
           changes.push('تم تحديث تفاصيل الشكوى');
         }
-        // Check other important fields
+        // التحقق من التغييرات في الحقول المهمة الأخرى
         if (oldComplaint.customerName !== updatedComplaint.customerName) {
           changes.push(`تم تغيير اسم العميل من "${oldComplaint.customerName}" إلى "${updatedComplaint.customerName}"`);
         }
@@ -289,6 +908,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         ? `قام ${modifiedBy} بـ${changes.join(' • ')}`
         : `قام ${modifiedBy} بتحديث الشكوى`;
 
+      // إضافة إجراء "تعديل" إلى سجل الإجراءات
       await supabase.from('complaint_actions').insert({
         complaint_id: updatedComplaint.id,
         action_type: 'تعديل',
@@ -296,11 +916,19 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         modified_by: modifiedBy
       });
 
+      // تحديث البيانات المحلية
+      const updatedComplaints = weeklyData.complaints.map(complaint => 
+        complaint.id === updatedComplaint.id ? updatedComplaint : complaint
+      );
+      
       setWeeklyData(prev => ({
         ...prev,
-        complaints: prev.complaints.map(complaint => 
-          complaint.id === updatedComplaint.id ? updatedComplaint : complaint
-        )
+        complaints: updatedComplaints
+      }));
+      
+      setAnnualData(prev => ({
+        ...prev,
+        complaints: updatedComplaints
       }));
       
       toast.success('تم تحديث الشكوى بنجاح');
@@ -312,6 +940,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteComplaint = useCallback(async (id: string, modifiedBy: string) => {
     try {
+      // إضافة إجراء "حذف" إلى سجل الإجراءات قبل حذف الشكوى
       await supabase.from('complaint_actions').insert({
         complaint_id: id,
         action_type: 'حذف',
@@ -319,9 +948,20 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         modified_by: modifiedBy
       });
 
+      // لاحظ أننا لا نحذف الشكوى من قاعدة البيانات، بل نقوم فقط بتحديث البيانات المحلية
+      // كي يبقى سجل الإجراءات متاحًا للمراجعة
+      
+      // تحديث البيانات المحلية
+      const updatedComplaints = weeklyData.complaints.filter(complaint => complaint.id !== id);
+      
       setWeeklyData(prev => ({
         ...prev,
-        complaints: prev.complaints.filter(complaint => complaint.id !== id)
+        complaints: updatedComplaints
+      }));
+      
+      setAnnualData(prev => ({
+        ...prev,
+        complaints: updatedComplaints
       }));
       
       toast.success('تم حذف الشكوى بنجاح');
@@ -329,7 +969,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       console.error('Error deleting complaint:', error);
       toast.error('حدث خطأ أثناء حذف الشكوى');
     }
-  }, []);
+  }, [weeklyData.complaints]);
 
   return (
     <DataContext.Provider value={{ 
@@ -337,6 +977,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setViewMode,
       weeklyData,
       annualData,
+      isLoading,
       updateWeeklyData,
       updateAnnualData,
       addComplaint,

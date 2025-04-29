@@ -19,9 +19,11 @@ interface ComplaintActionsProps {
 
 const ComplaintActions = ({ complaintId }: ComplaintActionsProps) => {
   const [actions, setActions] = useState<ComplaintAction[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const fetchActions = async () => {
+      setIsLoading(true);
       const { data, error } = await supabase
         .from('complaint_actions')
         .select('*')
@@ -30,14 +32,18 @@ const ComplaintActions = ({ complaintId }: ComplaintActionsProps) => {
 
       if (error) {
         console.error('Error fetching complaint actions:', error);
-        return;
+      } else {
+        setActions(data || []);
       }
-
-      setActions(data);
+      setIsLoading(false);
     };
 
     fetchActions();
   }, [complaintId]);
+
+  if (isLoading) {
+    return <div className="bg-secondary rounded-md p-4 mb-6 text-center">جاري تحميل سجل الإجراءات...</div>;
+  }
 
   if (actions.length === 0) {
     return null;

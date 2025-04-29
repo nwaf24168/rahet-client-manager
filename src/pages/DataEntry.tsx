@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import ViewToggle from '../components/ViewToggle';
 import { useData } from '../contexts/DataContext';
@@ -7,7 +6,7 @@ import { DataEntryTab } from '../types';
 import { toast } from 'sonner';
 
 const DataEntry = () => {
-  const { viewMode, weeklyData, annualData, updateWeeklyData, updateAnnualData } = useData();
+  const { viewMode, weeklyData, annualData, updateWeeklyData, updateAnnualData, isLoading } = useData();
   const [activeTab, setActiveTab] = useState<DataEntryTab>('performanceMetrics');
   const [notes, setNotes] = useState('');
 
@@ -15,44 +14,63 @@ const DataEntry = () => {
   const updateData = viewMode === 'weekly' ? updateWeeklyData : updateAnnualData;
 
   // Performance Metrics Data Entry
-  const [performanceMetricsForm, setPerformanceMetricsForm] = useState(() => {
-    return data.performanceMetrics.reduce((acc, metric) => {
-      acc[metric.id] = metric.value;
-      return acc;
-    }, {} as Record<string, number>);
-  });
-
+  const [performanceMetricsForm, setPerformanceMetricsForm] = useState<Record<string, number>>({});
+  
   // Customer Service Data Entry
-  const [customerServiceForm, setCustomerServiceForm] = useState(() => {
-    return {
-      calls: data.customerMetrics.calls.reduce((acc, metric) => {
-        acc[metric.id] = metric.value;
-        return acc;
-      }, {} as Record<string, number>),
-      inquiries: data.customerMetrics.inquiries.reduce((acc, metric) => {
-        acc[metric.id] = metric.value;
-        return acc;
-      }, {} as Record<string, number>),
-      maintenance: data.customerMetrics.maintenance.reduce((acc, metric) => {
-        acc[metric.id] = metric.value;
-        return acc;
-      }, {} as Record<string, number>),
-    };
+  const [customerServiceForm, setCustomerServiceForm] = useState<{
+    calls: Record<string, number>;
+    inquiries: Record<string, number>;
+    maintenance: Record<string, number>;
+  }>({
+    calls: {},
+    inquiries: {},
+    maintenance: {}
   });
 
   // Customer Satisfaction Data Entry
-  const [customerSatisfactionForm, setCustomerSatisfactionForm] = useState(() => {
-    return data.customerSatisfaction.reduce((acc, item) => {
-      acc[item.id] = {
-        veryPleased: item.veryPleased,
-        pleased: item.pleased,
-        neutral: item.neutral,
-        displeased: item.displeased,
-        veryDispleased: item.veryDispleased,
-      };
-      return acc;
-    }, {} as Record<string, any>);
-  });
+  const [customerSatisfactionForm, setCustomerSatisfactionForm] = useState<Record<string, any>>({});
+
+  // تحديث نماذج الإدخال عندما تتغير البيانات
+  useEffect(() => {
+    if (data.performanceMetrics.length > 0) {
+      setPerformanceMetricsForm(data.performanceMetrics.reduce((acc, metric) => {
+        acc[metric.id] = metric.value;
+        return acc;
+      }, {} as Record<string, number>));
+    }
+
+    if (data.customerMetrics.calls.length > 0 || 
+        data.customerMetrics.inquiries.length > 0 || 
+        data.customerMetrics.maintenance.length > 0) {
+      setCustomerServiceForm({
+        calls: data.customerMetrics.calls.reduce((acc, metric) => {
+          acc[metric.id] = metric.value;
+          return acc;
+        }, {} as Record<string, number>),
+        inquiries: data.customerMetrics.inquiries.reduce((acc, metric) => {
+          acc[metric.id] = metric.value;
+          return acc;
+        }, {} as Record<string, number>),
+        maintenance: data.customerMetrics.maintenance.reduce((acc, metric) => {
+          acc[metric.id] = metric.value;
+          return acc;
+        }, {} as Record<string, number>)
+      });
+    }
+
+    if (data.customerSatisfaction.length > 0) {
+      setCustomerSatisfactionForm(data.customerSatisfaction.reduce((acc, item) => {
+        acc[item.id] = {
+          veryPleased: item.veryPleased,
+          pleased: item.pleased,
+          neutral: item.neutral,
+          displeased: item.displeased,
+          veryDispleased: item.veryDispleased
+        };
+        return acc;
+      }, {} as Record<string, any>));
+    }
+  }, [data]);
 
   const handleUpdatePerformanceMetrics = () => {
     const updatedMetrics = data.performanceMetrics.map(metric => ({
@@ -118,6 +136,19 @@ const DataEntry = () => {
       toast.error('الرجاء إدخال ملاحظات قبل الحفظ');
     }
   };
+
+  if (isLoading) {
+    return (
+      <Layout title="إدخال البيانات">
+        <div className="flex justify-center items-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4">جاري تحميل البيانات...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="إدخال البيانات">

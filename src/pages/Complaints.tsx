@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import Layout from '../components/Layout';
 import { useData } from '../contexts/DataContext';
@@ -24,7 +23,7 @@ import { toast } from 'sonner';
 import ComplaintActions from '@/components/ComplaintActions';
 
 const Complaints = () => {
-  const { weeklyData, addComplaint, updateComplaint, deleteComplaint } = useData();
+  const { weeklyData, addComplaint, updateComplaint, deleteComplaint, isLoading } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('جميع الحالات');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -37,7 +36,7 @@ const Complaints = () => {
     customerName: '',
     project: '',
     date: new Date().toISOString().split('T')[0],
-    status: 'تم حلها',
+    status: 'تحت المعالجة', // تم تغييرها من 'تم حلها' إلى 'تحت المعالجة'
     source: '',
     details: '',
     action: '',
@@ -106,7 +105,7 @@ const Complaints = () => {
       date: newComplaint.date || new Date().toISOString().split('T')[0],
       customerName: newComplaint.customerName || '',
       project: newComplaint.project || '',
-      status: newComplaint.status || 'تم حلها',
+      status: newComplaint.status || 'تحت المعالجة', // تم تغييرها من 'تم حلها' إلى 'تحت المعالجة'
       source: newComplaint.source || 'الاستبيان',
       details: newComplaint.details || '',
       action: newComplaint.action || '',
@@ -118,7 +117,7 @@ const Complaints = () => {
       customerName: '',
       project: '',
       date: new Date().toISOString().split('T')[0],
-      status: 'تم حلها',
+      status: 'تحت المعالجة', // تم تغييرها من 'تم حلها' إلى 'تحت المعالجة'
       source: '',
       details: '',
       action: '',
@@ -133,6 +132,19 @@ const Complaints = () => {
     updateComplaint(selectedComplaint, currentUser);
     setIsEditModalOpen(false);
   };
+
+  if (isLoading) {
+    return (
+      <Layout title="سجل الشكاوى والطلبات">
+        <div className="flex justify-center items-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4">جاري تحميل البيانات...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="سجل الشكاوى والطلبات">

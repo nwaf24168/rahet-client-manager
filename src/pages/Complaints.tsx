@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import Layout from '../components/Layout';
 import { useData } from '../contexts/DataContext';
@@ -30,6 +31,7 @@ const Complaints = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
+  const [currentUser] = useState('نواف'); // Default user for modifications
   
   const [newComplaint, setNewComplaint] = useState<Partial<Complaint>>({
     customerName: '',
@@ -56,7 +58,7 @@ const Complaints = () => {
   const statusOptions = [
     'جميع الحالات',
     'تم حلها',
-    'قرارات قائمة',
+    'تحت المعالجة',
     'لم يتم حلها'
   ];
 
@@ -88,7 +90,7 @@ const Complaints = () => {
 
   const handleDeleteComplaint = (id: string) => {
     if (confirm('هل أنت متأكد من حذف هذه الشكوى؟')) {
-      deleteComplaint(id);
+      deleteComplaint(id, currentUser);
     }
   };
 
@@ -128,7 +130,7 @@ const Complaints = () => {
   const handleSaveEditedComplaint = () => {
     if (!selectedComplaint) return;
     
-    updateComplaint(selectedComplaint);
+    updateComplaint(selectedComplaint, currentUser);
     setIsEditModalOpen(false);
   };
 
@@ -195,7 +197,7 @@ const Complaints = () => {
                       <span className={`inline-block px-2 py-1 rounded-full text-xs ${
                         complaint.status === 'تم حلها' 
                           ? 'bg-green-950/20 text-green-500' 
-                          : complaint.status === 'قرارات قائمة'
+                          : complaint.status === 'تحت المعالجة'
                           ? 'bg-yellow-950/20 text-yellow-500'
                           : 'bg-red-950/20 text-red-500'
                       }`}>
@@ -369,7 +371,7 @@ const Complaints = () => {
               <span className={`inline-block px-3 py-1 rounded-full text-sm ${
                 selectedComplaint.status === 'تم حلها' 
                   ? 'bg-green-950/20 text-green-500' 
-                  : selectedComplaint.status === 'قرارات قائمة'
+                  : selectedComplaint.status === 'تحت المعالجة'
                   ? 'bg-yellow-950/20 text-yellow-500'
                   : 'bg-red-950/20 text-red-500'
               }`}>
@@ -434,7 +436,7 @@ const Complaints = () => {
                     <h4 className="font-medium">تم استلامها بواسطة</h4>
                     <User className="h-5 w-5 text-primary" />
                   </div>
-                  <p className="text-right">عدنان</p>
+                  <p className="text-right">{currentUser}</p>
                 </div>
               </div>
             </div>
@@ -462,6 +464,8 @@ const Complaints = () => {
                 يرجى كتابة الإجراءات المتخذة بشكل واضح ودقيق
               </p>
             </div>
+
+            <ComplaintActions complaintId={selectedComplaint.id} />
             
             <div className="flex justify-start">
               <button 

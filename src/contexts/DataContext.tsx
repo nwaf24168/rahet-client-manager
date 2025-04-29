@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 import { 
   ViewMode, 
@@ -133,7 +134,7 @@ const initialWeeklyData: WeeklyData = {
       date: '2025-01-28', 
       customerName: 'حمد الحسين', 
       project: 'النخيل', 
-      status: 'قرارات قائمة',
+      status: 'تحت المعالجة',
       source: 'الهاتف',
       details: 'تسرب مياه في الحمام',
       action: 'جدولة زيارة فني'
@@ -188,7 +189,7 @@ const initialWeeklyData: WeeklyData = {
       date: '2025-02-19', 
       customerName: 'عمر العنبري', 
       project: 'النخيل', 
-      status: 'قرارات قائمة',
+      status: 'تحت المعالجة',
       source: 'البريد الإلكتروني',
       details: 'مشكلة في التكييف المركزي',
       action: 'تم جدولة زيارة فني مختص'
@@ -238,7 +239,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         complaint_id: complaint.id,
         action_type: 'إنشاء',
         action_details: 'تم إنشاء الشكوى',
-        modified_by: 'عدنان'
+        modified_by: 'نواف'
       });
 
       setWeeklyData(prev => ({
@@ -268,9 +269,25 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         if (oldComplaint.details !== updatedComplaint.details) {
           changes.push('تم تحديث تفاصيل الشكوى');
         }
+        // Check other important fields
+        if (oldComplaint.customerName !== updatedComplaint.customerName) {
+          changes.push(`تم تغيير اسم العميل من "${oldComplaint.customerName}" إلى "${updatedComplaint.customerName}"`);
+        }
+        if (oldComplaint.project !== updatedComplaint.project) {
+          const oldProject = oldComplaint.project || 'غير محدد';
+          const newProject = updatedComplaint.project || 'غير محدد';
+          changes.push(`تم تغيير المشروع من "${oldProject}" إلى "${newProject}"`);
+        }
+        if (oldComplaint.unitNumber !== updatedComplaint.unitNumber) {
+          const oldUnit = oldComplaint.unitNumber || 'غير محدد';
+          const newUnit = updatedComplaint.unitNumber || 'غير محدد';
+          changes.push(`تم تغيير رقم الوحدة من "${oldUnit}" إلى "${newUnit}"`);
+        }
       }
 
-      const actionDetails = changes.join(' • ') || 'تم تحديث الشكوى';
+      const actionDetails = changes.length > 0 
+        ? `قام ${modifiedBy} بـ${changes.join(' • ')}`
+        : `قام ${modifiedBy} بتحديث الشكوى`;
 
       await supabase.from('complaint_actions').insert({
         complaint_id: updatedComplaint.id,
@@ -298,7 +315,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       await supabase.from('complaint_actions').insert({
         complaint_id: id,
         action_type: 'حذف',
-        action_details: 'تم حذف الشكوى',
+        action_details: `قام ${modifiedBy} بحذف الشكوى`,
         modified_by: modifiedBy
       });
 

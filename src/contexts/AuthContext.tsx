@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../types';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AuthContextType {
   user: User | null;
@@ -18,49 +19,85 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error('Failed to parse stored user', error);
-        localStorage.removeItem('user');
+    const checkLocalStorage = async () => {
+      setIsLoading(true);
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          
+          // التحقق من صحة بيانات المستخدم في قاعدة البيانات
+          const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('username', parsedUser.username)
+            .eq('password', parsedUser.password)
+            .single();
+          
+          if (error) {
+            console.error('خطأ في التحقق من بيانات المستخدم:', error);
+            localStorage.removeItem('user');
+          } else if (data) {
+            setUser({
+              id: data.id,
+              username: data.username,
+              name: data.name,
+              role: data.role,
+              password: data.password
+            });
+          } else {
+            localStorage.removeItem('user');
+          }
+        } catch (error) {
+          console.error('فشل في قراءة بيانات المستخدم المخزنة', error);
+          localStorage.removeItem('user');
+        }
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+
+    checkLocalStorage();
   }, []);
 
   const login = async (username: string, password: string) => {
     try {
-      // In a real app, this would be an API call
-      // For now, simulate checking against a predefined user list
-      const defaultUsers = [
-        { id: '1', username: 'Alramz2025', password: 'Alramz2025', name: 'nawaf', role: 'مدير النظام' },
-        { id: '2', username: 'admin', password: 'Alramz2025', name: 'admin', role: 'مدير النظام' },
-        { id: '3', username: 'abdukalam', password: 'Alramz2025', name: 'abdukalam', role: 'مدير إدارة راحة العملاء' },
-        { id: '4', username: 'ajjawhara', password: 'Alramz2025', name: 'ajjawhara', role: 'موظف إدارة راحة العملاء' },
-        { id: '5', username: 'khulood', password: 'Alramz2025', name: 'khulood', role: 'موظف إدارة راحة العملاء' },
-        { id: '6', username: 'adnan', password: 'Alramz2025', name: 'adnan', role: 'موظف إدارة راحة العملاء' },
-        { id: '7', username: 'lateefa', password: 'Alramz2025', name: 'lateefa', role: 'موظف إدارة راحة العملاء' },
-        { id: '8', username: 'nawaf', password: 'Alramz2025', name: 'nawaf', role: 'مدير النظام' },
-      ];
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', username.toLowerCase())
+        .eq('password', password)
+        .single();
 
-      // Check if a user with the provided username and password exists
-      const foundUser = defaultUsers.find(
-        u => u.username.toLowerCase() === username.toLowerCase() && u.password === password
-      );
+      if (error) {
+        console.error('خطأ في تسجيل الدخول:', error);
+        toast.error("اسم المستخدم أو كلمة المرور غير صحيحة");
+        setIsLoading(false);
+        return false;
+      }
 
-      if (foundUser) {
+      if (data) {
+        const foundUser: User = {
+          id: data.id,
+          username: data.username,
+          name: data.name,
+          role: data.role,
+          password: data.password
+        };
+
         setUser(foundUser);
         localStorage.setItem('user', JSON.stringify(foundUser));
+        setIsLoading(false);
         return true;
       }
       
       toast.error("اسم المستخدم أو كلمة المرور غير صحيحة");
+      setIsLoading(false);
       return false;
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('خطأ في تسجيل الدخول:', error);
       toast.error('حدث خطأ أثناء تسجيل الدخول');
+      setIsLoading(false);
       return false;
     }
   };

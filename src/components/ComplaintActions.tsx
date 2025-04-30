@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Calendar, User } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from '../contexts/AuthContext';
 
 interface ComplaintAction {
   id: string;
@@ -20,6 +21,7 @@ interface ComplaintActionsProps {
 const ComplaintActions = ({ complaintId }: ComplaintActionsProps) => {
   const [actions, setActions] = useState<ComplaintAction[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchActions = async () => {

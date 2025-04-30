@@ -1,9 +1,10 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { toast } from 'sonner';
 import { User } from '../types';
 import { Trash, Edit } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface UserFormData {
   username: string;
@@ -13,15 +14,8 @@ interface UserFormData {
 }
 
 const Settings = () => {
-  const [users, setUsers] = useState<User[]>([
-    { id: '1', username: 'admin', password: 'Alramz2025', name: 'admin', role: 'مدير النظام' },
-    { id: '2', username: 'abdukalam', password: 'Alramz2025', name: 'abdukalam', role: 'مدير إدارة راحة العملاء' },
-    { id: '3', username: 'ajjawhara', password: 'Alramz2025', name: 'ajjawhara', role: 'موظف إدارة راحة العملاء' },
-    { id: '4', username: 'khulood', password: 'Alramz2025', name: 'khulood', role: 'موظف إدارة راحة العملاء' },
-    { id: '5', username: 'adnan', password: 'Alramz2025', name: 'adnan', role: 'موظف إدارة راحة العملاء' },
-    { id: '6', username: 'lateefa', password: 'Alramz2025', name: 'lateefa', role: 'موظف إدارة راحة العملاء' },
-    { id: '7', username: 'nawaf', password: 'Alramz2025', name: 'nawaf', role: 'مدير النظام' },
-  ]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   const [newUser, setNewUser] = useState<UserFormData>({
     username: '',
@@ -33,15 +27,38 @@ const Settings = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
-  // Role options
+  // خيارات الأدوار
   const roleOptions = [
     'مدير النظام',
     'مدير إدارة راحة العملاء',
     'موظف إدارة راحة العملاء'
   ];
 
-  // Handle adding new user
-  const handleAddUser = () => {
+  // جلب المستخدمين من قاعدة البيانات
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setIsLoading(true);
+      
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: true });
+      
+      if (error) {
+        console.error('خطأ في جلب بيانات المستخدمين:', error);
+        toast.error('حدث خطأ في جلب بيانات المستخدمين');
+      } else {
+        setUsers(data);
+      }
+      
+      setIsLoading(false);
+    };
+
+    fetchUsers();
+  }, []);
+
+  // إضافة مستخدم جديد
+  const handleAddUser = async () => {
     if (!newUser.username || !newUser.name) {
       toast.error('الرجاء إدخال اسم المستخدم والاسم');
       return;
@@ -52,50 +69,111 @@ const Settings = () => {
       return;
     }
 
-    const userToAdd: User = {
-      id: `${users.length + 1}`,
-      username: newUser.username,
-      password: newUser.password,
-      name: newUser.name,
-      role: newUser.role
-    };
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          username: newUser.username,
+          password: newUser.password,
+          name: newUser.name,
+          role: newUser.role
+        })
+        .select();
 
-    setUsers([...users, userToAdd]);
-    toast.success('تم إضافة المستخدم بنجاح');
-    
-    setNewUser({
-      username: '',
-      password: 'Alramz2025',
-      name: '',
-      role: 'موظف إدارة راحة العملاء'
-    });
+      if (error) {
+        console.error('خطأ في إضافة المستخدم:', error);
+        toast.error('حدث خطأ في إضافة المستخدم');
+        return;
+      }
+
+      toast.success('تم إضافة المستخدم بنجاح');
+      
+      setUsers([...users, data[0]]);
+      
+      setNewUser({
+        username: '',
+        password: 'Alramz2025',
+        name: '',
+        role: 'موظف إدارة راحة العملاء'
+      });
+    } catch (error) {
+      console.error('خطأ:', error);
+      toast.error('حدث خطأ في إضافة المستخدم');
+    }
   };
 
-  // Handle editing user
+  // تعديل المستخدم
   const handleOpenEditModal = (user: User) => {
     setEditingUser(user);
     setIsEditModalOpen(true);
   };
 
-  const handleUpdateUser = () => {
+  const handleUpdateUser = async () => {
     if (!editingUser) return;
 
-    setUsers(users.map(user => 
-      user.id === editingUser.id ? editingUser : user
-    ));
-    
-    toast.success('تم تحديث المستخدم بنجاح');
-    setIsEditModalOpen(false);
-    setEditingUser(null);
-  };
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({
+          username: editingUser.username,
+          password: editingUser.password,
+          name: editingUser.name,
+          role: editingUser.role
+        })
+        .eq('id', editingUser.id);
 
-  // Handle deleting user
-  const handleDeleteUser = (id: string) => {
-    if (confirm('هل أنت متأكد من حذف هذا المستخدم؟')) {
-      setUsers(users.filter(user => user.id !== id));
-      toast.success('تم حذف المستخدم بنجاح');
+      if (error) {
+        console.error('خطأ في تحديث بيانات المستخدم:', error);
+        toast.error('حدث خطأ في تحديث بيانات المستخدم');
+        return;
+      }
+
+      setUsers(users.map(user => 
+        user.id === editingUser.id ? editingUser : user
+      ));
+      
+      toast.success('تم تحديث المستخدم بنجاح');
+      setIsEditModalOpen(false);
+      setEditingUser(null);
+    } catch (error) {
+      console.error('خطأ:', error);
+      toast.error('حدث خطأ في تحديث بيانات المستخدم');
     }
   };
+
+  // حذف المستخدم
+  const handleDeleteUser = async (id: string) => {
+    if (confirm('هل أنت متأكد من حذف هذا المستخدم؟')) {
+      try {
+        const { error } = await supabase
+          .from('users')
+          .delete()
+          .eq('id', id);
+
+        if (error) {
+          console.error('خطأ في حذف المستخدم:', error);
+          toast.error('حدث خطأ في حذف المستخدم');
+          return;
+        }
+
+        setUsers(users.filter(user => user.id !== id));
+        toast.success('تم حذف المستخدم بنجاح');
+      } catch (error) {
+        console.error('خطأ:', error);
+        toast.error('حدث خطأ في حذف المستخدم');
+      }
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Layout title="إعدادات النظام">
+        <div className="bg-card rounded-md p-6 flex justify-center items-center">
+          <p>جاري تحميل البيانات...</p>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="إعدادات النظام">
@@ -188,7 +266,7 @@ const Settings = () => {
         </div>
       </div>
 
-      {/* Edit User Modal */}
+      {/* نافذة تعديل المستخدم */}
       {isEditModalOpen && editingUser && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-card rounded-lg p-6 w-full max-w-lg mx-4">

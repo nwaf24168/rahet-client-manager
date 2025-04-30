@@ -31,18 +31,19 @@ const DataEntry = () => {
   // Customer Satisfaction Data Entry
   const [customerSatisfactionForm, setCustomerSatisfactionForm] = useState<Record<string, any>>({});
 
-  // تحديث نماذج الإدخال عندما تتغير البيانات
+  // تحديث نماذج الإدخال عندما تتغير البيانات أو يتغير وضع العرض
   useEffect(() => {
-    if (data.performanceMetrics.length > 0) {
-      setPerformanceMetricsForm(data.performanceMetrics.reduce((acc, metric) => {
+    if (data.performanceMetrics && data.performanceMetrics.length > 0) {
+      const metricsForm = data.performanceMetrics.reduce((acc, metric) => {
         acc[metric.id] = metric.value;
         return acc;
-      }, {} as Record<string, number>));
+      }, {} as Record<string, number>);
+      setPerformanceMetricsForm(metricsForm);
+    } else {
+      setPerformanceMetricsForm({});
     }
 
-    if (data.customerMetrics.calls.length > 0 || 
-        data.customerMetrics.inquiries.length > 0 || 
-        data.customerMetrics.maintenance.length > 0) {
+    if (data.customerMetrics) {
       setCustomerServiceForm({
         calls: data.customerMetrics.calls.reduce((acc, metric) => {
           acc[metric.id] = metric.value;
@@ -59,7 +60,7 @@ const DataEntry = () => {
       });
     }
 
-    if (data.customerSatisfaction.length > 0) {
+    if (data.customerSatisfaction && data.customerSatisfaction.length > 0) {
       setCustomerSatisfactionForm(data.customerSatisfaction.reduce((acc, item) => {
         acc[item.id] = {
           veryPleased: item.veryPleased,
@@ -70,8 +71,10 @@ const DataEntry = () => {
         };
         return acc;
       }, {} as Record<string, any>));
+    } else {
+      setCustomerSatisfactionForm({});
     }
-  }, [data]);
+  }, [data, viewMode]);
 
   const handleUpdatePerformanceMetrics = () => {
     const updatedMetrics = data.performanceMetrics.map(metric => ({
@@ -112,7 +115,8 @@ const DataEntry = () => {
       const formData = customerSatisfactionForm[item.id];
       const total = formData.veryPleased + formData.pleased + formData.neutral + formData.displeased + formData.veryDispleased;
       // Calculate score - weighted average
-      const score = ((formData.veryPleased * 100) + (formData.pleased * 75) + (formData.neutral * 50) + (formData.displeased * 25)) / total;
+      const score = total > 0 ? 
+        ((formData.veryPleased * 100) + (formData.pleased * 75) + (formData.neutral * 50) + (formData.displeased * 25)) / total : 0;
       
       return {
         ...item,
@@ -204,7 +208,7 @@ const DataEntry = () => {
                     <input 
                       type="number" 
                       className="w-full bg-background border border-border rounded-md p-2 text-right" 
-                      value={performanceMetricsForm[metric.id]}
+                      value={performanceMetricsForm[metric.id] || 0}
                       onChange={(e) => {
                         setPerformanceMetricsForm({
                           ...performanceMetricsForm,
@@ -255,7 +259,7 @@ const DataEntry = () => {
                         <input 
                           type="number" 
                           className="w-24 bg-background border border-border rounded-md p-2 text-right" 
-                          value={customerServiceForm.calls[metric.id]}
+                          value={customerServiceForm.calls[metric.id] || 0}
                           onChange={(e) => {
                             setCustomerServiceForm({
                               ...customerServiceForm,
@@ -280,7 +284,7 @@ const DataEntry = () => {
                         <input 
                           type="number" 
                           className="w-24 bg-background border border-border rounded-md p-2 text-right" 
-                          value={customerServiceForm.inquiries[metric.id]}
+                          value={customerServiceForm.inquiries[metric.id] || 0}
                           onChange={(e) => {
                             setCustomerServiceForm({
                               ...customerServiceForm,
@@ -305,7 +309,7 @@ const DataEntry = () => {
                         <input 
                           type="number" 
                           className="w-24 bg-background border border-border rounded-md p-2 text-right" 
-                          value={customerServiceForm.maintenance[metric.id]}
+                          value={customerServiceForm.maintenance[metric.id] || 0}
                           onChange={(e) => {
                             setCustomerServiceForm({
                               ...customerServiceForm,

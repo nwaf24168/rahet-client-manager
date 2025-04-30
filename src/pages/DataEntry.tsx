@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import ViewToggle from '../components/ViewToggle';
@@ -77,7 +78,7 @@ const DataEntry = () => {
       ...metric,
       value: performanceMetricsForm[metric.id],
       targetAchieved: 
-        metric.name === 'عدد التوالي للرد' || metric.name === 'عدد إعادة فتح طلب' 
+        metric.name === 'عدد التوالي للرد' || metric.name === 'عدد إعادة فتح طلب' || metric.name === 'سرعة إغلاق طلبات الصيانة'
           ? performanceMetricsForm[metric.id] <= metric.target
           : performanceMetricsForm[metric.id] >= metric.target
     }));
@@ -214,12 +215,12 @@ const DataEntry = () => {
 
                     <div className="mt-2 text-right">
                       <p className={`text-xs ${
-                        metric.name === 'عدد التوالي للرد' || metric.name === 'عدد إعادة فتح طلب' 
+                        metric.name === 'عدد التوالي للرد' || metric.name === 'عدد إعادة فتح طلب' || metric.name === 'سرعة إغلاق طلبات الصيانة'
                           ? performanceMetricsForm[metric.id] <= metric.target ? 'text-positive' : 'text-negative'
                           : performanceMetricsForm[metric.id] >= metric.target ? 'text-positive' : 'text-negative'
                       }`}>
                         {
-                          metric.name === 'عدد التوالي للرد' || metric.name === 'عدد إعادة فتح طلب' 
+                          metric.name === 'عدد التوالي للرد' || metric.name === 'عدد إعادة فتح طلب' || metric.name === 'سرعة إغلاق طلبات الصيانة'
                             ? performanceMetricsForm[metric.id] <= metric.target ? 'تم تحقيق الهدف' : 'لم يتم تحقيق الهدف'
                             : performanceMetricsForm[metric.id] >= metric.target ? 'تم تحقيق الهدف' : 'لم يتم تحقيق الهدف'
                         }
